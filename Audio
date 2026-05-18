@@ -1,0 +1,83 @@
+import numpy as np
+import sounddevice as sd
+from pynput import keyboard
+
+sample_rate = 44100
+volumen = 0.2
+
+# Frecuencias
+notas = {
+    'a': 261.63,  # Do
+    's': 293.66,  # Re
+    'd': 329.63,  # Mi
+    'f': 349.23,  # Fa
+    'g': 392.00,  # Sol
+    'h': 440.00,  # La
+    'j': 493.88,  # Si
+    'k': 523.25   # Do agudo
+}
+
+# Teclas activas
+teclas_activas = set()
+
+# Fase para evitar cortes
+fase = 0
+
+def audio_callback(outdata, frames, time, status):
+    global fase
+
+    t = (np.arange(frames) + fase) / sample_rate
+
+    audio = np.zeros(frames)
+
+    for tecla in teclas_activas:
+        frecuencia = notas[tecla]
+        audio += np.sin(2 * np.pi * frecuencia * t)
+
+    if len(teclas_activas) > 0:
+        audio /= len(teclas_activas)
+
+    outdata[:] = (audio * volumen).reshape(-1, 1)
+
+    fase += frames
+
+def on_press(key):
+    try:
+        tecla = key.char.lower()
+
+        if tecla in notas:
+            teclas_activas.add(tecla)
+
+    except:
+        pass
+
+def on_release(key):
+    try:
+        tecla = key.char.lower()
+
+        if tecla in teclas_activas:
+            teclas_activas.remove(tecla)
+
+    except:
+        pass
+
+    if key == keyboard.Key.esc:
+        return False
+
+print("Piano activo")
+print("A S D F G H J K")
+print("ESC para salir")
+
+# Stream de audio continuo
+with sd.OutputStream(
+    channels=1,
+    callback=audio_callback,
+    samplerate=sample_rate
+):
+
+    with keyboard.Listener(
+        on_press=on_press,
+        on_release=on_release
+    ) as listener:
+
+        listener.join()
