@@ -3,7 +3,7 @@ import sounddevice as sd
 from pynput import keyboard
 
 sample_rate = 44100
-volumen = 0.2
+volumen = 0.4
 
 # Frecuencias
 notas = {
@@ -17,10 +17,22 @@ notas = {
     'k': 523.25   # Do agudo
 }
 
-# Teclas activas
-teclas_activas = set()
+# Paneo estéreo
+# -1 = izquierda total
+#  0 = centro
+#  1 = derecha total
+paneo = {
+    'a': -1.0,
+    's': -0.7,
+    'd': -0.4,
+    'f': -0.1,
+    'g': 0.1,
+    'h': 0.4,
+    'j': 0.7,
+    'k': 1.0
+}
 
-# Fase para evitar cortes
+teclas_activas = set()
 fase = 0
 
 def audio_callback(outdata, frames, time, status):
@@ -28,16 +40,30 @@ def audio_callback(outdata, frames, time, status):
 
     t = (np.arange(frames) + fase) / sample_rate
 
-    audio = np.zeros(frames)
+    left = np.zeros(frames)
+    right = np.zeros(frames)
 
     for tecla in teclas_activas:
         frecuencia = notas[tecla]
-        audio += np.sin(2 * np.pi * frecuencia * t)
+
+        onda = np.sin(2 * np.pi * frecuencia * t)
+
+        pan = paneo[tecla]
+
+        # Conversión de paneo
+        left_gain = (1 - pan) / 2
+        right_gain = (1 + pan) / 2
+
+        left += onda * left_gain
+        right += onda * right_gain
 
     if len(teclas_activas) > 0:
-        audio /= len(teclas_activas)
+        left /= len(teclas_activas)
+        right /= len(teclas_activas)
 
-    outdata[:] = (audio * volumen).reshape(-1, 1)
+    stereo = np.column_stack((left, right))
+
+    outdata[:] = stereo * volumen
 
     fase += frames
 
@@ -55,8 +81,7 @@ def on_release(key):
     try:
         tecla = key.char.lower()
 
-        if tecla in teclas_activas:
-            teclas_activas.remove(tecla)
+        teclas_activas.discard(tecla)
 
     except:
         pass
@@ -64,17 +89,15 @@ def on_release(key):
     if key == keyboard.Key.esc:
         return False
 
-print("Piano activo")
+print("Piano estéreo activo")
 print("A S D F G H J K")
 print("ESC para salir")
 
-# Stream de audio continuo
 with sd.OutputStream(
-    channels=1,
+    channels=2,
     callback=audio_callback,
     samplerate=sample_rate
 ):
-
     with keyboard.Listener(
         on_press=on_press,
         on_release=on_release
