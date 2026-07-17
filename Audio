@@ -7,17 +7,7 @@ volumen = 0.4
 
 # Frecuencias de las notas
 notas = {
-    """"
-    'a': 261.63,  # Do
-    's': 293.66,  # Re
-    'd': 329.63,  # Mi
-    'f': 349.23,  # Fa
-    'g': 392.00,  # Sol
-    'h': 440.00,  # La
-    'j': 493.88,  # Si
-    'k': 523.25   # Do agudo
-    """
-    'k': 523.25,   # Do agudo
+
     'a': 261.63,  # Do
     's': 329.63,  # Mi
     'd': 392.00,  # Sol
@@ -36,18 +26,6 @@ notas = {
 #  1 = derecha
 paneo = {
 
-    """"
-    'a': -1.0,
-    's': -0.7,
-    'd': -0.4,
-    'f': -0.1,
-    'g': 0.1,
-    'h': 0.4,
-    'j': 0.7,
-    'k': 1.0
-    """
-
-    'k': -1.0,
     'a': -1.0,
     's': -0.5,
     'd': 0.5,
@@ -62,11 +40,11 @@ paneo = {
 # Posición espacial
 profundidad = {
     
-    'k': 'front',
-    'a': 'front',
-    's': 'front',
-    'd': 'front',
-    'f': 'front',
+    'k': 'center',
+    'a': 'center',
+    's': 'center',
+    'd': 'center',
+    'f': 'center',
 
     'z': 'back',
     'x': 'back',
