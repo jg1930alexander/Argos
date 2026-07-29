@@ -51,7 +51,7 @@ class RadarConfig:
     """
 
     # Distancia máxima para considerar un obstáculo (mm)
-    DISTANCIA_UMBRAL: int = 200
+    DISTANCIA_UMBRAL: int = 1000
 
     # Frecuencia de actualización del radar
     FPS: int = 20
@@ -103,7 +103,7 @@ class SensorConfig:
     Configuración general de los VL53L0X.
     """
 
-    NUMERO_SENSORES: int = 6
+    NUMERO_SENSORES: int = 8
 
     DIRECCION_I2C_INICIAL: int = 0x30
 
@@ -263,49 +263,46 @@ MAPA_SENSORES = [
 
     {
         "id": 2,
-        "pin": board.D6,
+        "pin": board.D19,
         "direccion": "s"
     },
 
     {
         "id": 3,
-        "pin": board.D5,
+        "pin": board.D13,
         "direccion": "d"
     },
 
-    # ============================
-    # FUTUROS SENSORES
-    # ============================
 
-    # {
-    #     "id":4,
-    #     "pin":board.DXX,
-    #     "direccion":"f"
-    # },
+    {
+         "id":4,
+        "pin":board.D5,
+         "direccion":"f"
+     },
 
-    # {
-    #     "id":5,
-    #     "pin":board.DXX,
-    #     "direccion":"z"
-    # },
+     {
+         "id":5,
+         "pin":board.D21,
+         "direccion":"z"
+     },
 
-    # {
-    #     "id":6,
-    #     "pin":board.DXX,
-    #     "direccion":"x"
-    # },
+     {
+         "id":6,
+         "pin":board.D20,
+         "direccion":"x"
+     },
 
-    # {
-    #     "id":7,
-    #     "pin":board.DXX,
-    #     "direccion":"c"
-    # },
+     {
+         "id":7,
+         "pin":board.D16,
+         "direccion":"c"
+     },
 
-    # {
-    #     "id":8,
-    #     "pin":board.DXX,
-    #     "direccion":"v"
-    # }
+     {
+         "id":8,
+         "pin":board.D12,
+         "direccion":"v"
+     }
 
 ]
 
