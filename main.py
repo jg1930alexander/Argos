@@ -1,105 +1,19 @@
-"""
-==============================================================================
-PROYECTO ARGOS
-==============================================================================
+import time, board, busio
+import adafruit_tca9548a, adafruit_vl53l0x
 
-Archivo:
-    main.py
+i2c = busio.I2C(board.SCL, board.SDA)
+tca = adafruit_tca9548a.TCA9548A(i2c)
 
-Descripción:
-    Punto de entrada principal del sistema ARGOS.
-
-    Funciones:
-    - Inicialización del sistema.
-    - Ejecución del radar.
-    - Control básico del programa.
-
-Versión:
-    1.0.0
-==============================================================================
-"""
-
-from configuracion import (
-    NOMBRE_PROYECTO,
-    VERSION
-)
-
-from radar import RadarARGOS
-
-from utilidades import (
-    imprimir_titulo,
-    imprimir_linea
-)
-
-
-# ==============================================================================
-# INFORMACIÓN DEL SISTEMA
-# ==============================================================================
-
-
-def mostrar_inicio():
-    """
-    Muestra información del proyecto.
-    """
-
-    imprimir_titulo(
-        NOMBRE_PROYECTO
-    )
-
-    print(
-        f"Versión: {VERSION}"
-    )
-
-    print(
-        "Detector espacial de obstáculos"
-    )
-
-    print(
-        "Audio direccional para asistencia visual"
-    )
-
-    imprimir_linea()
-
-
-
-# ==============================================================================
-# PROGRAMA PRINCIPAL
-# ==============================================================================
-
-
-def main():
-    """
-    Función principal.
-    """
-
-    mostrar_inicio()
-
-
-    sistema = RadarARGOS()
-
-
+sensores = {}
+for ch in range(8):
     try:
+        sensores[ch] = adafruit_vl53l0x.VL53L0X(tca[ch])
+        print(f"Canal {ch}: OK")
+    except Exception as e:
+        print(f"Canal {ch}: sin sensor ({e})")
 
-        sistema.ejecutar()
-
-
-    except Exception as error:
-
-        print()
-
-        print(
-            "ERROR DEL SISTEMA:"
-        )
-
-        print(error)
-
-
-
-# ==============================================================================
-# EJECUCIÓN
-# ==============================================================================
-
-
-if __name__ == "__main__":
-
-    main()
+while True:
+    for ch, s in sensores.items():
+        print(f"Canal {ch}: {s.range} mm")
+    print("-" * 20)
+    time.sleep(0.5)
