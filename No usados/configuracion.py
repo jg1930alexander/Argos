@@ -21,7 +21,7 @@ Proyecto:
     ARGOS
 
 Versión:
-    1.0.0
+    1.0.1
 ==============================================================================
 """
 
@@ -35,7 +35,7 @@ import board
 
 NOMBRE_PROYECTO = "Proyecto ARGOS"
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 AUTOR = "Alexander Jordan"
 
