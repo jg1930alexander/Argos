@@ -5,6 +5,7 @@ from multiplexor import iniciar_i2c, iniciar_multiplexor
 from sensores import iniciar_sensores, leer_todos, mostrar_distancias
 
 from audio import iniciar_audio, actualizar_audio, cerrar_audio
+from audifonos import esperar_audifonos
 
 
 # Configuración
@@ -44,6 +45,8 @@ def ejecutar_prueba(sensores, intervalo=0.5):
 
 def main():
     """Inicializa el hardware, los sensores y el audio."""
+
+    esperar_audifonos()
 
     i2c = iniciar_i2c()
     audio_iniciado = False

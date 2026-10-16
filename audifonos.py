@@ -1,32 +1,47 @@
 
-import sounddevice as sd
+import subprocess
 import time
 
-def esperar_dispositivo_bluetooth(max_intentos=30, intervalo=1):
-    """Espera hasta encontrar la salida Bluetooth de los audífonos."""
 
-    for intento in range(max_intentos):
-        dispositivos = sd.query_devices()
+def audifonos_conectados():
+    """Comprueba que los KVIDIO 201 estén conectados y sean la salida activa."""
 
-        for i, dev in enumerate(dispositivos):
-            nombre = dev["name"].lower()
-
-            if (
-                dev["max_output_channels"] >= 2
-                and ("bluez" in nombre or "kvidio" in nombre)
-            ):
-                print(
-                    f"Salida encontrada: {dev['name']} "
-                    f"(índice {i})"
-                )
-                return i
-
-        print(
-            f"Esperando audífonos Bluetooth... "
-            f"({intento + 1}/{max_intentos})"
+    try:
+        bluetooth = subprocess.run(
+            ["bluetoothctl", "devices", "Connected"],
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
+
+        pipewire = subprocess.run(
+            ["wpctl", "status"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+
+        if bluetooth.returncode != 0 or pipewire.returncode != 0:
+            return False
+
+        conectados = bluetooth.stdout.lower()
+        audio = pipewire.stdout.lower()
+
+        return (
+            "kvidio 201" in conectados
+            and "kvidio 201" in audio
+            and "sinks:" in audio
+        )
+
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+
+
+def esperar_audifonos(intervalo=2):
+    """Espera indefinidamente hasta que estén conectados."""
+
+    while not audifonos_conectados():
+        print("Esperando conexión de los audífonos KVIDIO 201...")
         time.sleep(intervalo)
 
-    raise RuntimeError(
-        "No se encontró la salida Bluetooth de los audífonos."
-    )
+    print("Audífonos KVIDIO 201 conectados.")
