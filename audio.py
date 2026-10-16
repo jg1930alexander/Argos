@@ -161,7 +161,7 @@ import time
 
 
 def probar_audio(duracion=2):
-    """Reproduce una nota de prueba por cada canal."""
+    """Prueba cada canal y varias notas simultáneas."""
     iniciar_audio()
 
     try:
@@ -176,11 +176,22 @@ def probar_audio(duracion=2):
             actualizar_audio(distancias, umbral_mm=1000)
             time.sleep(duracion)
 
-        detener_audio()
+        for cantidad in (1, 2, 3, 4, 8):
+            print(f"\nProbando {cantidad} notas simultáneas...")
+
+            distancias = {
+                canal: (500 if canal < cantidad else None)
+                for canal in FRECUENCIAS
+            }
+
+            actualizar_audio(distancias, umbral_mm=1000)
+            time.sleep(5)
+
+    except KeyboardInterrupt:
+        print("\nPrueba interrumpida.")
 
     finally:
         cerrar_audio()
-
 
 if __name__ == "__main__":
     probar_audio()
