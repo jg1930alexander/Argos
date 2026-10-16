@@ -40,45 +40,52 @@ bloqueo = threading.Lock()
 flujo_audio = None
 
 
+
 def generar_audio(outdata, frames, time_info, status):
-    """Genera las notas activas en estéreo."""
+    """Genera las notas activas en estéreo de forma eficiente."""
     audio = np.zeros((frames, 2), dtype=np.float32)
 
+    # Copiar los estados activos rápidamente
     with bloqueo:
-        activos = list(sonidos_activos.items())
+        activos = [
+            (canal, FRECUENCIAS[canal], PANORAMA[canal])
+            for canal, activo in sonidos_activos.items()
+            if activo
+        ]
 
-    for canal, activo in activos:
-        if not activo:
-            continue
+    if not activos:
+        outdata[:] = audio
+        return
 
-        frecuencia = FRECUENCIAS[canal]
-        pan = PANORAMA[canal]
+    # Crear los índices una sola vez por bloque
+    indices = np.arange(frames, dtype=np.float64)
 
-        # Generar onda sinusoidal
-        fase_inicial = fases[canal]
+    for canal, frecuencia, pan in activos:
         incremento = 2 * np.pi * frecuencia / FRECUENCIA_MUESTREO
 
-        indices = np.arange(frames)
-        onda = np.sin(fase_inicial + incremento * indices)
+        onda = np.sin(
+            fases[canal] + incremento * indices
+        )
 
         fases[canal] = (
-            fase_inicial + incremento * frames
+            fases[canal] + incremento * frames
         ) % (2 * np.pi)
 
-        # Distribución estéreo
         ganancia_izquierda = np.sqrt((1 - pan) / 2)
         ganancia_derecha = np.sqrt((1 + pan) / 2)
 
-        audio[:, 0] += (
-            onda * ganancia_izquierda * VOLUMEN
-        )
-        audio[:, 1] += (
-            onda * ganancia_derecha * VOLUMEN
-        )
+        audio[:, 0] += onda * ganancia_izquierda
+        audio[:, 1] += onda * ganancia_derecha
 
-    # Evitar saturación al mezclar varias notas
+    # Mantener un volumen controlado al activar varias notas
+    cantidad = len(activos)
+    volumen_efectivo = VOLUMEN / np.sqrt(cantidad)
+
+    audio *= volumen_efectivo
     np.clip(audio, -1.0, 1.0, out=audio)
+
     outdata[:] = audio
+
 
 
 def iniciar_audio():
@@ -96,7 +103,7 @@ def iniciar_audio():
         samplerate=FRECUENCIA_MUESTREO,
         channels=2,
         dtype="float32",
-        blocksize=512,
+        blocksize=2048,
         callback=generar_audio,
     )
 
