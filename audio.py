@@ -36,70 +36,61 @@ PANORAMA = {
 # Estado interno
 sonidos_activos = {}
 fases = {canal: 0.0 for canal in FRECUENCIAS}
-ganancias_actuales = {canal: 0.0 for canal in FRECUENCIAS}
 bloqueo = threading.Lock()
 flujo_audio = None
 
 
 
 
+
 def generar_audio(outdata, frames, time_info, status):
-    """Mezcla las ocho notas con transiciones suaves."""
+    """Genera audio estéreo con carga de procesamiento reducida."""
+
     audio = np.zeros((frames, 2), dtype=np.float32)
 
     with bloqueo:
-        activos = sonidos_activos.copy()
+        activos = [
+            canal for canal in FRECUENCIAS
+            if sonidos_activos.get(canal, False)
+        ]
 
-    indices = np.arange(frames, dtype=np.float64)
-    muestras_rampa = max(1, int(0.010 * FRECUENCIA_MUESTREO))
+    cantidad = len(activos)
 
-    # Volumen fijo por canal para evitar saltos al sumar notas
-    volumen_canal = VOLUMEN / np.sqrt(len(FRECUENCIAS))
+    if cantidad == 0:
+        outdata[:] = audio
+        return
 
-    for canal, frecuencia in FRECUENCIAS.items():
-        ganancia_inicial = ganancias_actuales[canal]
-        ganancia_objetivo = 1.0 if activos.get(canal, False) else 0.0
+    # Normalizar para evitar que el volumen se dispare
+    volumen_canal = VOLUMEN / np.sqrt(cantidad)
 
-        # Suavizar el cambio de volumen
-        longitud = min(frames, muestras_rampa)
+    # Usar precisión simple para reducir trabajo en la Pi Zero
+    indices = np.arange(frames, dtype=np.float32)
 
-        rampa = np.linspace(
-            ganancia_inicial,
-            ganancia_objetivo,
-            longitud,
-            endpoint=True
+    for canal in activos:
+        frecuencia = FRECUENCIAS[canal]
+        incremento = np.float32(
+            2.0 * np.pi * frecuencia / FRECUENCIA_MUESTREO
         )
-
-        ganancias = np.full(frames, ganancia_objetivo, dtype=np.float64)
-        ganancias[:longitud] = rampa
-
-        ganancias_actuales[canal] = ganancia_objetivo
-
-        # Si está completamente silenciado, no hace falta generar su onda
-        if ganancia_objetivo == 0.0 and ganancia_inicial == 0.0:
-            continue
-
-        incremento = 2 * np.pi * frecuencia / FRECUENCIA_MUESTREO
 
         onda = np.sin(
-            fases[canal] + incremento * indices
+            np.float32(fases[canal]) + incremento * indices
         )
 
-        fases[canal] = (
-            fases[canal] + incremento * frames
-        ) % (2 * np.pi)
+        fases[canal] = float(
+            (fases[canal] + float(incremento) * frames)
+            % (2.0 * np.pi)
+        )
 
         pan = PANORAMA[canal]
-        ganancia_izquierda = np.sqrt((1 - pan) / 2)
-        ganancia_derecha = np.sqrt((1 + pan) / 2)
+        izquierda = np.sqrt((1.0 - pan) / 2.0)
+        derecha = np.sqrt((1.0 + pan) / 2.0)
 
-        senal = onda * ganancias * volumen_canal
-
-        audio[:, 0] += senal * ganancia_izquierda
-        audio[:, 1] += senal * ganancia_derecha
+        audio[:, 0] += onda * np.float32(volumen_canal * izquierda)
+        audio[:, 1] += onda * np.float32(volumen_canal * derecha)
 
     np.clip(audio, -1.0, 1.0, out=audio)
     outdata[:] = audio
+
 
 
 
