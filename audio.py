@@ -91,9 +91,6 @@ def iniciar_audio():
     if flujo_audio is not None:
         return
 
-    #Espera que el dispositivo Bluetooth esté disponible antes de iniciar el flujo de audio
-    #indice_bt = None
-
     flujo_audio = sd.OutputStream(
         samplerate=FRECUENCIA_MUESTREO,
         channels=2,
