@@ -65,7 +65,7 @@ def generar_audio(outdata, frames, time_info, status):
         return
 
     # Normalizar para evitar que el volumen se dispare
-    volumen_canal = VOLUMEN / np.sqrt(cantidad)
+    volumen_canal = VOLUMEN / np.sqrt(len(FRECUENCIAS))
 
     # Usar precisión simple para reducir trabajo en la Pi Zero
     indices = np.arange(frames, dtype=np.float32)
