@@ -11,15 +11,19 @@ VOLUMEN = 0.20
 
 # Frecuencias asignadas a los ocho canales
 FRECUENCIAS = {
+    # Sensores delanteros
     0: 261.63,  # Do
     1: 329.63,  # Mi
     2: 392.00,  # Sol
     3: 493.88,  # Si
-    4: 261.63,  # Do
-    5: 329.63,  # Mi
-    6: 392.00,  # Sol
-    7: 493.88,  # Si
+
+    # Sensores traseros
+    4: 220.00,  # La grave
+    5: 293.66,  # Re
+    6: 349.23,  # Fa
+    7: 440.00,  # La
 }
+
 
 # Posición estéreo: -1 izquierda, +1 derecha
 PANORAMA = {
