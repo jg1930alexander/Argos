@@ -3,6 +3,7 @@ import threading
 import time
 import numpy as np
 import sounddevice as sd
+from audifonos import esperar_dispositivo_bluetooth
 
 
 # Configuración de audio
@@ -92,7 +93,11 @@ def iniciar_audio():
     if flujo_audio is not None:
         return
 
+    #Espera que el dispositivo Bluetooth esté disponible antes de iniciar el flujo de audio
+    indice_bt = esperar_dispositivo_bluetooth()
+
     flujo_audio = sd.OutputStream(
+        device=indice_bt,
         samplerate=FRECUENCIA_MUESTREO,
         channels=2,
         dtype="float32",
