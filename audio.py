@@ -36,31 +36,49 @@ PANORAMA = {
 # Estado interno
 sonidos_activos = {}
 fases = {canal: 0.0 for canal in FRECUENCIAS}
+ganancias_actuales = {canal: 0.0 for canal in FRECUENCIAS}
 bloqueo = threading.Lock()
 flujo_audio = None
 
 
 
+
 def generar_audio(outdata, frames, time_info, status):
-    """Genera las notas activas en estéreo de forma eficiente."""
+    """Mezcla las ocho notas con transiciones suaves."""
     audio = np.zeros((frames, 2), dtype=np.float32)
 
-    # Copiar los estados activos rápidamente
     with bloqueo:
-        activos = [
-            (canal, FRECUENCIAS[canal], PANORAMA[canal])
-            for canal, activo in sonidos_activos.items()
-            if activo
-        ]
+        activos = sonidos_activos.copy()
 
-    if not activos:
-        outdata[:] = audio
-        return
-
-    # Crear los índices una sola vez por bloque
     indices = np.arange(frames, dtype=np.float64)
+    muestras_rampa = max(1, int(0.010 * FRECUENCIA_MUESTREO))
 
-    for canal, frecuencia, pan in activos:
+    # Volumen fijo por canal para evitar saltos al sumar notas
+    volumen_canal = VOLUMEN / np.sqrt(len(FRECUENCIAS))
+
+    for canal, frecuencia in FRECUENCIAS.items():
+        ganancia_inicial = ganancias_actuales[canal]
+        ganancia_objetivo = 1.0 if activos.get(canal, False) else 0.0
+
+        # Suavizar el cambio de volumen
+        longitud = min(frames, muestras_rampa)
+
+        rampa = np.linspace(
+            ganancia_inicial,
+            ganancia_objetivo,
+            longitud,
+            endpoint=True
+        )
+
+        ganancias = np.full(frames, ganancia_objetivo, dtype=np.float64)
+        ganancias[:longitud] = rampa
+
+        ganancias_actuales[canal] = ganancia_objetivo
+
+        # Si está completamente silenciado, no hace falta generar su onda
+        if ganancia_objetivo == 0.0 and ganancia_inicial == 0.0:
+            continue
+
         incremento = 2 * np.pi * frecuencia / FRECUENCIA_MUESTREO
 
         onda = np.sin(
@@ -71,20 +89,18 @@ def generar_audio(outdata, frames, time_info, status):
             fases[canal] + incremento * frames
         ) % (2 * np.pi)
 
+        pan = PANORAMA[canal]
         ganancia_izquierda = np.sqrt((1 - pan) / 2)
         ganancia_derecha = np.sqrt((1 + pan) / 2)
 
-        audio[:, 0] += onda * ganancia_izquierda
-        audio[:, 1] += onda * ganancia_derecha
+        senal = onda * ganancias * volumen_canal
 
-    # Mantener un volumen controlado al activar varias notas
-    cantidad = len(activos)
-    volumen_efectivo = VOLUMEN / np.sqrt(cantidad)
+        audio[:, 0] += senal * ganancia_izquierda
+        audio[:, 1] += senal * ganancia_derecha
 
-    audio *= volumen_efectivo
     np.clip(audio, -1.0, 1.0, out=audio)
-
     outdata[:] = audio
+
 
 
 
