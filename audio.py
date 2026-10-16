@@ -6,7 +6,7 @@ import sounddevice as sd
 
 
 # Configuración de audio
-FRECUENCIA_MUESTREO = 44100
+FRECUENCIA_MUESTREO = 48000
 VOLUMEN = 0.20
 
 # Frecuencias asignadas a los ocho canales
@@ -53,15 +53,19 @@ def _crear_tabla(frecuencia):
     return np.sin(2 * np.pi * f_exacta * t).astype(np.float32)
 
 # Pre-cálculo: tablas de onda y ganancias estéreo (una sola vez)
-TABLAS = {c: _crear_tabla(f) for c, f in FRECUENCIAS.items()}
-POSICION = {c: 0 for c in FRECUENCIAS}
+VOLUMEN_CANAL = VOLUMEN / np.sqrt(len(FRECUENCIAS))
 
-GANANCIA_IZQ = {}
-GANANCIA_DER = {}
-VOLUMEN_CANAL = np.float32(VOLUMEN / np.sqrt(len(FRECUENCIAS)))
-for c, pan in PANORAMA.items():
-    GANANCIA_IZQ[c] = np.float32(VOLUMEN_CANAL * np.sqrt((1.0 - pan) / 2.0))
-    GANANCIA_DER[c] = np.float32(VOLUMEN_CANAL * np.sqrt((1.0 + pan) / 2.0))
+TABLAS_IZQ, TABLAS_DER, LARGO = {}, {}, {}
+for c, f in FRECUENCIAS.items():
+    base = _crear_tabla(f)
+    pan = PANORAMA[c]
+    izq = (base * VOLUMEN_CANAL * np.sqrt((1.0 - pan) / 2.0)).astype(np.float32)
+    der = (base * VOLUMEN_CANAL * np.sqrt((1.0 + pan) / 2.0)).astype(np.float32)
+    TABLAS_IZQ[c] = np.concatenate([izq, izq])   # duplicada
+    TABLAS_DER[c] = np.concatenate([der, der])
+    LARGO[c] = len(base)
+
+POSICION = {c: 0 for c in FRECUENCIAS}
 
 
 
@@ -72,20 +76,10 @@ def generar_audio(outdata, frames, time_info, status):
         activos = [c for c in FRECUENCIAS if sonidos_activos[c]]
 
     for canal in activos:
-        tabla = TABLAS[canal]
-        n = len(tabla)
         pos = POSICION[canal]
-
-        # Lectura circular de la tabla sin calcular nada
-        if pos + frames <= n:
-            onda = tabla[pos:pos + frames]
-        else:
-            onda = np.take(tabla, np.arange(pos, pos + frames), mode="wrap")
-
-        POSICION[canal] = (pos + frames) % n
-
-        outdata[:, 0] += onda * GANANCIA_IZQ[canal]
-        outdata[:, 1] += onda * GANANCIA_DER[canal]
+        outdata[:, 0] += TABLAS_IZQ[canal][pos:pos + frames]
+        outdata[:, 1] += TABLAS_DER[canal][pos:pos + frames]
+        POSICION[canal] = (pos + frames) % LARGO[canal]
 
     np.clip(outdata, -1.0, 1.0, out=outdata)
 
