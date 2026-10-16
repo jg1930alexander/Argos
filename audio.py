@@ -1,6 +1,6 @@
 
 import threading
-
+import time
 import numpy as np
 import sounddevice as sd
 
@@ -38,86 +38,74 @@ PANORAMA = {
 }
 
 # Estado interno
-sonidos_activos = {}
-fases = {canal: 0.0 for canal in FRECUENCIAS}
+sonidos_activos = {canal: False for canal in FRECUENCIAS}
 bloqueo = threading.Lock()
 flujo_audio = None
 
 
+def _crear_tabla(frecuencia):
+    """Crea un bucle con un número entero de ciclos (sin clics al repetir)."""
+    ciclos = max(1, int(round(frecuencia)))          # ~1 s de audio
+    n = int(round(ciclos * FRECUENCIA_MUESTREO / frecuencia))
+    t = np.arange(n, dtype=np.float64) / FRECUENCIA_MUESTREO
+    # Se ajusta la frecuencia exacta para que el bucle cierre perfecto
+    f_exacta = ciclos * FRECUENCIA_MUESTREO / n
+    return np.sin(2 * np.pi * f_exacta * t).astype(np.float32)
+
+# Pre-cálculo: tablas de onda y ganancias estéreo (una sola vez)
+TABLAS = {c: _crear_tabla(f) for c, f in FRECUENCIAS.items()}
+POSICION = {c: 0 for c in FRECUENCIAS}
+
+GANANCIA_IZQ = {}
+GANANCIA_DER = {}
+VOLUMEN_CANAL = np.float32(VOLUMEN / np.sqrt(len(FRECUENCIAS)))
+for c, pan in PANORAMA.items():
+    GANANCIA_IZQ[c] = np.float32(VOLUMEN_CANAL * np.sqrt((1.0 - pan) / 2.0))
+    GANANCIA_DER[c] = np.float32(VOLUMEN_CANAL * np.sqrt((1.0 + pan) / 2.0))
 
 
 
 def generar_audio(outdata, frames, time_info, status):
-    """Genera audio estéreo con carga de procesamiento reducida."""
-
-    audio = np.zeros((frames, 2), dtype=np.float32)
+    outdata.fill(0)
 
     with bloqueo:
-        activos = [
-            canal for canal in FRECUENCIAS
-            if sonidos_activos.get(canal, False)
-        ]
-
-    cantidad = len(activos)
-
-    if cantidad == 0:
-        outdata[:] = audio
-        return
-
-    # Normalizar para evitar que el volumen se dispare
-    volumen_canal = VOLUMEN / np.sqrt(len(FRECUENCIAS))
-
-    # Usar precisión simple para reducir trabajo en la Pi Zero
-    indices = np.arange(frames, dtype=np.float32)
+        activos = [c for c in FRECUENCIAS if sonidos_activos[c]]
 
     for canal in activos:
-        frecuencia = FRECUENCIAS[canal]
-        incremento = np.float32(
-            2.0 * np.pi * frecuencia / FRECUENCIA_MUESTREO
-        )
+        tabla = TABLAS[canal]
+        n = len(tabla)
+        pos = POSICION[canal]
 
-        onda = np.sin(
-            np.float32(fases[canal]) + incremento * indices
-        )
+        # Lectura circular de la tabla sin calcular nada
+        if pos + frames <= n:
+            onda = tabla[pos:pos + frames]
+        else:
+            onda = np.take(tabla, np.arange(pos, pos + frames), mode="wrap")
 
-        fases[canal] = float(
-            (fases[canal] + float(incremento) * frames)
-            % (2.0 * np.pi)
-        )
+        POSICION[canal] = (pos + frames) % n
 
-        pan = PANORAMA[canal]
-        izquierda = np.sqrt((1.0 - pan) / 2.0)
-        derecha = np.sqrt((1.0 + pan) / 2.0)
+        outdata[:, 0] += onda * GANANCIA_IZQ[canal]
+        outdata[:, 1] += onda * GANANCIA_DER[canal]
 
-        audio[:, 0] += onda * np.float32(volumen_canal * izquierda)
-        audio[:, 1] += onda * np.float32(volumen_canal * derecha)
-
-    np.clip(audio, -1.0, 1.0, out=audio)
-    outdata[:] = audio
+    np.clip(outdata, -1.0, 1.0, out=outdata)
 
 
 
 
 
 def iniciar_audio():
-    """Inicia el flujo continuo de audio."""
     global flujo_audio
-
     if flujo_audio is not None:
         return
-
-    with bloqueo:
-        for canal in FRECUENCIAS:
-            sonidos_activos[canal] = False
 
     flujo_audio = sd.OutputStream(
         samplerate=FRECUENCIA_MUESTREO,
         channels=2,
         dtype="float32",
-        blocksize=2048,
+        blocksize=4096,      # bloque más grande = menos llamadas por segundo
+        latency="high",      # búfer holgado, ideal para Bluetooth
         callback=generar_audio,
     )
-
     flujo_audio.start()
     print("Audio iniciado correctamente.")
 
