@@ -1,0 +1,5 @@
+numpy
+sounddevice
+adafruit-circuitpython-tca9548a
+adafruit-circuitpython-vl53l0x
+adafruit-blinka

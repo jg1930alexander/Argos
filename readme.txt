@@ -43,3 +43,14 @@ Bluetooth
 bluetoothctl
 
 *------------------------------------------------------------*
+Git Hub
+
+git status --short --branch
+git diff
+git add archivo1.py archivo2.py
+git diff --cached --check
+git commit -m "Descripción de los cambios"
+git push origin pruebas
+git status --short --branch
+
+*------------------------------------------------------------*
