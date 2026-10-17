@@ -11,11 +11,10 @@ VOLUMEN = 0.20#volumen del audio (de 0.0 a 1.0)
 # Frecuencias asignadas a los ocho canales
 FRECUENCIAS = {
     # Sensores delanteros
-    0: 261.63,  # Do
-    1: 329.63,  # Mi
-    2: 392.00,  # Sol
-    3: 493.88,  # Si 4ta octaba
-
+    0: 130.81,  # Do
+    1: 164.81,  # Mi
+    2: 196.00,  # Sol
+    3: 246.94,  # Si 3ta octaba
     # Sensores traseros
     4: 523.25,  # Do
     5: 659.26,  # Mi

@@ -44,8 +44,9 @@ def leer_todos(sensores):#define la función que devuelve un diccionario con las
 def mostrar_distancias(distancias):#define la función que imprime en la consola las distancias medidas por todos los sensores disponibles en los ocho canales del multiplexor, indicando si no se pudo obtener una lectura válida para algún sensor
     """Muestra las distancias disponibles."""
     for canal, distancia in distancias.items():#itera sobre los elementos del diccionario de distancias, donde cada clave es el número de canal y cada valor es la distancia medida en milímetros (o None si no se pudo obtener una lectura válida), para imprimir en la consola las distancias medidas por todos los sensores disponibles en los ocho canales del multiplexor
+        print(f"____________________________________________")
         if distancia is None:#si la distancia medida por el sensor correspondiente al canal actual es None (es decir, no se pudo obtener una lectura válida), se imprime un mensaje indicando que no se pudo obtener una lectura para ese canal
-            print(f"Canal {canal}: Fuera de rango o sin lectura")
+            print(f"Canal {canal}: Fuera de rango")
         else:#si la distancia medida por el sensor correspondiente al canal actual es un valor válido (es decir, no es None), se imprime un mensaje indicando la distancia medida en milímetros para ese canal
             print(f"Canal {canal}: {distancia} mm")
 
