@@ -27,12 +27,12 @@ FRECUENCIAS = {
 #representa la posición de cada canal de audio en el espacio estéreo, donde -1 indica que el sonido se reproduce completamente en el canal izquierdo, +1 indica que se reproduce completamente en el canal derecho y 0 indica que se reproduce en ambos canales de manera equilibrada
 PANORAMA = {
     0: -1.0,
-    1: -0.3,
-    2:  0.3,
+    1: -0.5,
+    2:  0.5,
     3:  1.0,
     4: -1.0,
-    5: -0.3,
-    6:  0.3,
+    5: -0.5,
+    6:  0.5,
     7:  1.0,
 }
 
