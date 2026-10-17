@@ -1,8 +1,8 @@
 Datos
 hostname:argos
-WiFi Ip: [configurar]
-USB Ip: [configurar]
-login: [configurar]
+WiFi: [configurar]
+USB: [configurar]
+Usuario: [configurar]
 Argos
 
 
