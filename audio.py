@@ -6,13 +6,13 @@ import sounddevice as sd#se utiliza para reproducir audio en tiempo real
 
 # Configuración de audio
 FRECUENCIA_MUESTREO = 48000#frecuencia de muestreo del audio en Hz
-VOLUMEN = 0.20#volumen del audio (de 0.0 a 1.0)
+VOLUMEN = 0.40#volumen del audio (de 0.0 a 1.0)
 
 # Frecuencias asignadas a los ocho canales
 FRECUENCIAS = {
     # Sensores delanteros
     0: 130.81,  # Do
-    1: 164.81,  # Mi
+    1: 155.56,  # Mi bemol
     2: 196.00,  # Sol
     3: 246.94,  # Si 3ta octaba
     # Sensores traseros
