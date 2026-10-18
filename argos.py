@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 
-CARPETA_ARGOS = Path(__file__).resolve().parent
+CARPETA_ARGOS = Path.home() / "Argos"
 PYTHON_VENV = CARPETA_ARGOS / "venv" / "bin" / "python"
 PROGRAMA_ARGOS = CARPETA_ARGOS / "main.py"
 ARCHIVO_LOG = CARPETA_ARGOS / "argos.log"
