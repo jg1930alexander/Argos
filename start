@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+exec >/dev/null 2>&1
+
+if [[ $# -ne 1 || $1 != "Argos" ]]; then
+    exit 2
+fi
+
+CARPETA_ARGOS="$HOME/Argos"
+ACTIVAR_VENV="$CARPETA_ARGOS/venv/bin/activate"
+
+if [[ ! -f "$ACTIVAR_VENV" || ! -f "$CARPETA_ARGOS/main.py" ]]; then
+    exit 1
+fi
+
+if pgrep -f -- "$CARPETA_ARGOS/main.py" >/dev/null; then
+    exit 0
+fi
+
+cd "$CARPETA_ARGOS" || exit 1
+source "$ACTIVAR_VENV" || exit 1
+
+nohup python -u "$CARPETA_ARGOS/main.py" \
+    </dev/null >/dev/null 2>&1 &
+disown "$!" 2>/dev/null || true
