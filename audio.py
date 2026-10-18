@@ -7,6 +7,10 @@ import sounddevice as sd#se utiliza para reproducir audio en tiempo real
 # Configuración de audio
 FRECUENCIA_MUESTREO = 48000#frecuencia de muestreo del audio en Hz
 VOLUMEN = 0.40#volumen del audio (de 0.0 a 1.0)
+DURACION_PITIDO = 0.12
+INTERVALO_PITIDO_LEJOS = 1.0
+INTERVALO_PITIDO_CERCA = 0.2
+RAMPAS_PITIDO_S = 0.005
 
 # Frecuencias asignadas a los ocho canales
 FRECUENCIAS = {
@@ -37,7 +41,8 @@ PANORAMA = {
 }
 
 # Estado interno
-sonidos_activos = {canal: False for canal in FRECUENCIAS}#almacena el estado de cada canal (activo o inactivo)
+INTERVALOS_ACTIVOS = {canal: None for canal in FRECUENCIAS}
+FASES_PITIDO = {canal: 0.0 for canal in FRECUENCIAS}
 bloqueo = threading.Lock()#permite sincronizar el acceso a los recursos compartidos entre varios hilos de ejecución, evitando conflictos y garantizando la consistencia de los datos
 flujo_audio = None#almacena el objeto de flujo de audio que se utiliza para reproducir el sonido en tiempo real, y se inicializa como None hasta que se crea un flujo de audio válido mediante la función iniciar_audio()
 
@@ -72,16 +77,61 @@ for c, f in FRECUENCIAS.items():#para cada canal y su frecuencia correspondiente
 POSICION = {c: 0 for c in FRECUENCIAS}#almacena la posición actual de reproducción de cada canal, inicializando todas las posiciones en cero al inicio del programa. Esta posición se actualizará a medida que se reproduzca el audio, permitiendo que cada canal continúe desde donde se quedó en la siguiente iteración de reproducción.
 
 
+def calcular_intervalo_pitido(distancia, umbral_mm):
+    """Devuelve el intervalo del radar: más corto cuanto menor es la distancia."""
+    proporcion = min(max(distancia / umbral_mm, 0.0), 1.0)
+    return INTERVALO_PITIDO_CERCA + proporcion * (
+        INTERVALO_PITIDO_LEJOS - INTERVALO_PITIDO_CERCA
+    )
+
+
+def generar_envolvente_pitido(frames, fase, intervalo):
+    """Genera un pulso con rampas suaves para evitar clics de audio."""
+    tiempos = (
+        (fase + np.arange(frames, dtype=np.float32) /
+         (FRECUENCIA_MUESTREO * intervalo))
+        % 1.0
+    ) * intervalo
+    activo = tiempos < DURACION_PITIDO
+    distancia_borde = np.minimum(
+        tiempos,
+        DURACION_PITIDO - tiempos,
+    )
+    rampa = np.clip(
+        distancia_borde / RAMPAS_PITIDO_S,
+        0.0,
+        1.0,
+    )
+    return (activo * rampa).astype(np.float32)
+
+
 def generar_audio(outdata, frames, time_info, status):#se encarga de generar el audio en tiempo real, llenando el búfer de salida con los datos de audio correspondientes a los canales activos. Esta función se llama automáticamente por la biblioteca sounddevice cada vez que se necesita generar un nuevo bloque de audio.
     outdata.fill(0)#inicializa el búfer de salida con ceros, asegurando que no haya ruido residual de bloques de audio anteriores
 
     with bloqueo:#se utiliza un bloqueo para garantizar que el acceso a los recursos compartidos (como la lista de canales activos y las posiciones de reproducción) sea seguro y no se produzcan conflictos entre hilos de ejecución. Esto evita problemas de sincronización y garantiza que los datos se actualicen correctamente mientras se genera el audio.
-        activos = [c for c in FRECUENCIAS if sonidos_activos[c]]#se crea una lista de canales activos, es decir, aquellos canales que están actualmente activados para reproducir sonido. Esto se hace filtrando los canales en FRECUENCIAS y verificando si su estado en sonidos_activos es True.
+        intervalos = INTERVALOS_ACTIVOS.copy()
+        fases = FASES_PITIDO.copy()
+        for canal, intervalo in intervalos.items():
+            if intervalo is not None:
+                FASES_PITIDO[canal] = (
+                    fases[canal]
+                    + frames / (FRECUENCIA_MUESTREO * intervalo)
+                ) % 1.0
 
-    for canal in activos:#se itera sobre cada canal activo y se genera el audio correspondiente para ese canal. Se obtiene la posición actual de reproducción del canal, se agregan los datos de audio a los canales izquierdo y derecho del búfer de salida, y se actualiza la posición de reproducción para el siguiente bloque de audio.
+    for canal, intervalo in intervalos.items():
+        if intervalo is None:
+            continue
+
         pos = POSICION[canal]#se obtiene la posición actual de reproducción del canal
-        outdata[:, 0] += TABLAS_IZQ[canal][pos:pos + frames]#se agregan los datos de audio correspondientes al canal izquierdo del búfer de salida, utilizando la tabla de onda para el canal izquierdo y tomando los valores desde la posición actual hasta la posición actual más el número de frames a generar
-        outdata[:, 1] += TABLAS_DER[canal][pos:pos + frames]#se agregan los datos de audio correspondientes al canal derecho del búfer de salida, utilizando la tabla de onda para el canal derecho y tomando los valores desde la posición actual hasta la posición actual más el número de frames a generar
+        envolvente = generar_envolvente_pitido(
+            frames,
+            fases[canal],
+            intervalo,
+        )
+        onda_izquierda = TABLAS_IZQ[canal][pos:pos + frames] * envolvente
+        onda_derecha = TABLAS_DER[canal][pos:pos + frames] * envolvente
+        outdata[:, 0] += onda_izquierda#se aplica el pulso a la señal estéreo del canal izquierdo
+        outdata[:, 1] += onda_derecha#se aplica el pulso a la señal estéreo del canal derecho
         POSICION[canal] = (pos + frames) % LARGO[canal]#se actualiza la posición de reproducción del canal, sumando el número de frames generados y utilizando el operador módulo para asegurarse de que la posición se mantenga dentro del rango válido de la tabla de onda. Esto permite que la reproducción del canal continúe desde el principio de la tabla de onda una vez que se alcanza el final.
 
     np.clip(outdata, -1.0, 1.0, out=outdata)#se asegura de que los valores de audio en el búfer de salida estén dentro del rango válido de -1.0 a 1.0, evitando distorsiones o recortes en el audio generado. La función np.clip toma el búfer de salida y limita sus valores a este rango, sobrescribiendo los valores fuera del rango con los límites correspondientes.
@@ -121,17 +171,22 @@ def actualizar_audio(distancias, umbral_mm=1000):#se encarga de actualizar el es
         for canal in FRECUENCIAS:  #se itera sobre cada canal definido en FRECUENCIAS, que representa los canales de audio correspondientes a los sensores. Para cada canal, se obtiene la distancia medida desde el diccionario distancias y se verifica si está dentro del rango permitido (mayor que cero y menor o igual al umbral). Si es así, se activa el canal correspondiente en sonidos_activos; de lo contrario, se desactiva.
             distancia = distancias.get(canal)#se obtiene la distancia medida para el canal actual desde el diccionario distancias utilizando el método get(). Si no se encuentra una distancia para ese canal, se asigna None como valor predeterminado.
 
-            sonidos_activos[canal] = (#se actualiza el estado del canal en sonidos_activos, estableciendo su valor en True si la distancia medida está dentro del rango permitido (mayor que cero y menor o igual al umbral), o en False si no lo está. Esto determina si el canal estará activo o inactivo para la reproducción de audio.
-                distancia is not None
-                and 0 < distancia <= umbral_mm
-            )
+            if distancia is not None and 0 < distancia <= umbral_mm:
+                if INTERVALOS_ACTIVOS[canal] is None:
+                    FASES_PITIDO[canal] = 0.0
+                INTERVALOS_ACTIVOS[canal] = calcular_intervalo_pitido(
+                    distancia,
+                    umbral_mm,
+                )
+            else:
+                INTERVALOS_ACTIVOS[canal] = None
 
 
 def detener_audio():#se encarga de silenciar todos los canales de audio. Toma como entrada un diccionario distancias que contiene las distancias medidas para cada canal y un umbral umbral_mm que determina la distancia máxima para activar un canal. La función recorre cada canal y verifica si la distancia medida está dentro del rango permitido (mayor que cero y menor o igual al umbral). Si es así, activa el canal correspondiente en sonidos_activos; de lo contrario, lo desactiva. Se utiliza un bloqueo para garantizar que el acceso a sonidos_activos sea seguro y no se produzcan conflictos entre hilos de ejecución.
     """Silencia todos los canales."""
     with bloqueo:
         for canal in FRECUENCIAS:#se itera sobre cada canal definido en FRECUENCIAS y se establece su estado en sonidos_activos como False, lo que indica que todos los canales estarán inactivos y no se reproducirá ningún sonido.
-            sonidos_activos[canal] = False#se actualiza el estado del canal en sonidos_activos, estableciendo su valor en False para silenciar el canal y evitar que se reproduzca sonido.
+            INTERVALOS_ACTIVOS[canal] = None
 
 
 def cerrar_audio():#se encarga de detener y cerrar el flujo de audio. Primero, llama a la función detener_audio() para silenciar todos los canales. Luego, verifica si el flujo de audio está activo (es decir, si flujo_audio no es None). Si está activo, detiene el flujo de audio utilizando el método stop(), cierra el flujo utilizando el método close() y establece flujo_audio en None para indicar que ya no hay un flujo de audio activo. Finalmente, imprime un mensaje indicando que el audio se ha cerrado correctamente.
