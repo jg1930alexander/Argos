@@ -1,6 +1,6 @@
 
 import time
-
+from buzzer import pitido, tres_pitidos
 from multiplexor import iniciar_i2c, iniciar_multiplexor
 from sensores import iniciar_sensores, leer_todos, mostrar_distancias
 from audio import iniciar_audio, actualizar_audio, cerrar_audio
@@ -31,7 +31,7 @@ def ejecutar_argos(sensores):
 
 def main():
     """Inicializa el hardware, los sensores y el audio."""
-
+    pitido()#emite un pitido de inicio para indicar que el programa ha comenzado
     esperar_audifonos()#espera a que los audífonos KVIDIO 201 estén conectados y sean la salida activa
 
     i2c = iniciar_i2c() #inicializa el bus I2C
@@ -48,6 +48,7 @@ def main():
         iniciar_audio()#inicializa el audio direccional
         audio_iniciado = True#indica que el audio se ha iniciado correctamente
 
+        tres_pitidos()#emite tres pitidos para indicar que el programa está listo para funcionar
         print("ARGOS funcionando. Presiona Ctrl+C para detenerlo.")#indica que el programa está en funcionamiento y cómo detenerlo
         ejecutar_argos(sensores)#ejecuta la función principal que lee los sensores y actualiza el audio direccional
 
