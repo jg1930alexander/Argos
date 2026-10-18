@@ -11,6 +11,14 @@ Comandos:
 *------------------------------------------------------------*
 servicio argos hace que el programa arranque con el sistema
 
+Al abrir argos.py se muestra si el arranque automático está activado o desactivado.
+En el menú:
+1. Inicia ARGOS en la terminal.
+2. Activa el arranque automático con sudo systemctl enable argos.service.
+3. Desactiva el arranque automático con sudo systemctl disable argos.service.
+4. Muestra los logs con sudo journalctl -u argos.service -f. Ctrl+C vuelve al menú.
+5. Cierra el menú.
+
 
 #Activa arranque automatico de argos
 sudo systemctl enable argos.service
