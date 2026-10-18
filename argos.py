@@ -100,6 +100,8 @@ def main():
                     proceso, archivo_log = iniciar_argos()
             elif opcion == "2":
                 proceso, archivo_log = cerrar_argos(proceso, archivo_log)
+                print("Menú cerrado.")
+                break
             else:
                 print("Opción no válida. Escribe 1 o 2.")
 
